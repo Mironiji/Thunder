@@ -16,6 +16,7 @@ namespace Thunder.Client.CLI
             Console.WriteLine("Type 'help' for commands.");
             Console.ForegroundColor = ConsoleColor.White;
         }
+
         internal static void PrintThunderAnimation()
         {
             string[] cloud =
@@ -36,110 +37,101 @@ namespace Thunder.Client.CLI
 
             int[] visibleSegmentsByFrame =
             {
-                0, 1, 2, 3, 5, 5, 4, 3, 2, 0, 0, 1, 2, 3, 5
-            };
+        0, 1, 2, 3, 5, 5, 4, 3, 2, 0
+    };
 
-            int startX = Console.CursorLeft;
-            int startY = Console.CursorTop;
+            int height = cloud.Length + lightningFull.Length;
+            int width = Math.Max(
+                cloud.Max(s => s.Length),
+                lightningFull.Max(s => s.Length)
+            );
+
+            if (Console.WindowHeight < height)
+            {
+                Console.WriteLine("Увеличьте высоту окна консоли.");
+                return;
+            }
 
             bool cursorVisible = Console.CursorVisible;
-            Console.CursorVisible = false;
 
             try
             {
-                for (int frame = 0; frame < visibleSegmentsByFrame.Length; frame++)
+                Console.CursorVisible = false;
+
+                // Начинаем с новой строки, если курсор
+                // находится после другого текста.
+                if (Console.CursorLeft != 0)
+                    Console.WriteLine();
+
+                int startX = 0;
+
+                // Резервируем место под все строки анимации.
+                // Если места в окне нет, консоль прокрутится.
+                for (int i = 1; i < height; i++)
+                    Console.WriteLine();
+
+                int bottomY = Console.CursorTop;
+                int startY = bottomY - height + 1;
+
+                for (int frame = 0;
+                     frame < visibleSegmentsByFrame.Length;
+                     frame++)
                 {
-                    // Туча
+                    // Облако присутствует на каждом кадре.
                     for (int i = 0; i < cloud.Length; i++)
                     {
-                        PrintClipped(
-                            startX,
-                            startY + i,
-                            cloud[i],
-                            ConsoleColor.DarkGray
-                        );
+                        DrawLine(startX, startY + i,
+                            cloud[i].PadRight(width));
                     }
 
-                    // Молния
-                    int lightningY = startY + cloud.Length;
+                    int visible = visibleSegmentsByFrame[frame];
+                    bool appearing = frame <= 5;
 
                     for (int i = 0; i < lightningFull.Length; i++)
                     {
-                        string line = i < visibleSegmentsByFrame[frame]
-                            ? lightningFull[i]
-                            : new string(' ', lightningFull[i].Length);
+                        bool show = appearing
+                            ? i < visible
+                            : i >= lightningFull.Length - visible;
 
-                        PrintClipped(
+                        string line = show
+                            ? lightningFull[i]
+                            : "";
+
+                        DrawLine(
                             startX,
-                            lightningY + i,
-                            line,
-                            ConsoleColor.Yellow
+                            startY + cloud.Length + i,
+                            line.PadRight(width)
                         );
                     }
 
-                    Thread.Sleep(40);
+                    Thread.Sleep(100);
                 }
+
+                // Продолжаем вывод после области анимации.
+                Console.SetCursorPosition(0, bottomY);
+                Console.WriteLine();
             }
             finally
             {
-                Console.ResetColor();
                 Console.CursorVisible = cursorVisible;
             }
         }
 
-        private static void PrintClipped(
-            int x,
-            int y,
-            string text,
-            ConsoleColor color)
+        private static void DrawLine(int x, int y, string line)
         {
-            int left = Console.WindowLeft;
-            int top = Console.WindowTop;
+            // Не пишем в последнюю колонку буфера:
+            // это предотвращает перенос строки.
+            int available = Console.BufferWidth - x - 1;
 
-            int right = Math.Min(
-                left + Console.WindowWidth,
-                Console.BufferWidth
-            ) - 1;
-
-            int bottom = Math.Min(
-                top + Console.WindowHeight,
-                Console.BufferHeight
-            );
-
-            // Строка за пределами окна
-            if (y < top || y >= bottom || x >= right)
+            if (available <= 0)
                 return;
 
-            // Обрезаем часть строки слева
-            if (x < left)
-            {
-                int skip = left - x;
+            Console.SetCursorPosition(x, y);
 
-                if (skip >= text.Length)
-                    return;
-
-                text = text[skip..];
-                x = left;
-            }
-
-            // Обрезаем строку справа
-            int availableWidth = right - x;
-            int length = Math.Min(text.Length, availableWidth);
-
-            if (length <= 0)
-                return;
-
-            try
-            {
-                Console.SetCursorPosition(x, y);
-                Console.ForegroundColor = color;
-                Console.Write(text[..length]);
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                // Размер консоли мог измениться во время отрисовки
-            }
+            int length = Math.Min(line.Length, available);
+            Console.Write(line.AsSpan(0, length));
         }
+
 
         internal static void PrintHelp()
         {
