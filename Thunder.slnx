@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/Элементы решения/">
+    <File Path=".gitignore" />
+  </Folder>
+  <Project Path="Thunder.Contracts/Thunder.Contracts.csproj" Id="84f4fb6e-5ac8-4aca-92ba-71ad0dd3bb26" />
+  <Project Path="Thunder.Server/Thunder.Server.csproj" />
+  <Project Path="Thunder/Thunder.Client.csproj" />
+</Solution>
