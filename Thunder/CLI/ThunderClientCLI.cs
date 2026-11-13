@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
+using System.Net.WebSockets;
 using System.Text;
+using System.Text.Json;
 
 using Thunder.Client.Service;
 
@@ -13,18 +16,35 @@ namespace Thunder.Client.CLI
     {
         private bool _isRunnung = true;
         private byte _loginTries = 0;
-        private ThunderClientService _service = new();
-        
+        private string prompt = "> ";
+        private ThunderClientService _service;
+        public ThunderClientCLI(ThunderClientService service)
+        {
+            _service = service;
+        }
 
 		public async Task RunAsync()
         {
+            Animations.PrintThunderAnimation();
             Animations.PrintStartMessage();
 
-			while (_isRunnung)
+
+            while (_isRunnung)
             {
-                Console.Write("> ");
+                Console.Write(prompt);
                 var command = Console.ReadLine();
-                await Excecute(command);
+                if (command is null)
+                    break;
+
+                try
+                {
+                    await Excecute(command);
+                }
+                catch (Exception exception) when (exception is WebSocketException
+                    or InvalidDataException or JsonException or OperationCanceledException)
+                {
+                    Animations.PrintRed(exception.Message);
+                }
             }
         }   
         // определеяет команду и вызывает соответствующий метод сервиса
@@ -40,39 +60,111 @@ namespace Thunder.Client.CLI
                     case Command.help: { Animations.PrintHelp(); break; }
 					case Command.exit: { Animations.PrintThunderAnimation(); _isRunnung = false; break; }
 					case Command.login: await Login(); break;
-				}
+                    // todo выделить меню в отдельную функцию, показывать счетчик пропущенных
+                    case Command.menu: { await Menu(); break; }
+                    case Command.signup:
+                        {
+                            await SignUp();
+                            break; 
+                        }
+                }
 
             }
         }
-        private async Task WaitOneMinuteToDeleteTries()
+
+        private async Task Menu()
         {
-            await Task.Delay(60000);
+            bool is_auth = _service.IsAuthenticated;
+            if (is_auth)
+            {
+                Animations.PrintAuthtorizedMenu();
+            }
+            else
+            {
+                Animations.PrintUnAuthtorizedMenu();
+            }
+        }
+
+        private async Task SignUp()
+        {
+            Animations.PrintMagenta("New login (or menu): ");
+
+            Console.Write("> ");
+            string? login = Console.ReadLine();
+            if (login is null)
+                return;
+
+            if (login == Command.menu.ToString())
+            {
+                Animations.PrintThunderAnimation();
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(login) || login.Length < 2)
+            {
+                Animations.PrintRed("Incorrect login");
+                return;
+            }
+
+            if (!await _service.IsFreeLogin(login))
+            {
+                Animations.PrintRed("Login is already taken");
+                await SignUp();
+                return;
+            }
+
+            Animations.PrintMagenta("New password (at least 3 symbols): ");
+            Console.Write("> ");
+
+            var password = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(password) || password.Length < 3)
+            {
+                Animations.PrintRed("Incorrect password");
+                return;
+            }
+
+            if (!await _service.Signup(login, password))
+            {
+                Animations.PrintRed("Login is already taken");
+                return;
+            }
+
+            Animations.PintHorizontalLightAnimation();
+            prompt = login + "> ";
+            Animations.PrintGreen("Remember your new login & password");
+        }
+        private void WaitOneMinuteToDeleteTries()
+        {
+
+            Thread.Sleep(60000);
+            Console.ForegroundColor = ConsoleColor.DarkBlue;
+            Console.WriteLine("(you can try login again)");
+            Console.ForegroundColor = ConsoleColor.White;
             _loginTries = 0;
         }
         private async Task Login()
         {
-
             // в фоновом режиме отсчитывается минута, во время которой приложение
             // продолжает работать, но не позволяет пользователю спамить попытками логина
             if (_loginTries > 5)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Please try minute later");
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine(" /\n|\n/");
-                Console.ForegroundColor = ConsoleColor.White;
-                await WaitOneMinuteToDeleteTries();
+                Animations.PrintRed("Please try minute later");
+
+                Thread timer = new Thread(WaitOneMinuteToDeleteTries);
+                timer.Start();
+
                 return;
             }
 
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("Enter 'login:password': ");
-            Console.ForegroundColor = ConsoleColor.White;
+            Animations.PrintMagenta("Enter 'login:password': ");
 
+            Console.Write("> ");
             var input = Console.ReadLine();
+            if (input is null)
+                return;
             if (input == Command.menu.ToString())
             {
-                Animations.PrintStartMessage();
+                Animations.PrintThunderAnimation();
                 return;
             }
 
@@ -89,17 +181,14 @@ namespace Thunder.Client.CLI
                     bool hasLogin = await _service.Login(login, password);
                     if (!hasLogin)
                     {
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine("Please try again (or 'menu' to enter start menu): ");
-                        Console.ForegroundColor = ConsoleColor.White;
+                        Animations.PrintRed("Please try again (or 'menu' to enter start menu): ");
                         _loginTries++;
                         await Login();
                     }
                     else
                     {
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("Login successful.");
-                        Console.ForegroundColor = ConsoleColor.White;
+                        prompt = login + "> ";
+                        Animations.PrintGreen("Login successful.");
                     }
                 }
             }
@@ -107,8 +196,7 @@ namespace Thunder.Client.CLI
             // если введен рандомный текст - предупреджаем
             else
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Please enter in format 'login:password'\nor 'menu' to start menu");
+                Animations.PrintRed("Please enter in format 'login:password'\nor 'menu' to start menu");
                 await Login();
             }
         }

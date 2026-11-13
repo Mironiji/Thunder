@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "Новый профиль",
+    "Projects": [
+      {
+        "Path": "Thunder.Server\\Thunder.Server.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "Thunder\\Thunder.Client.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

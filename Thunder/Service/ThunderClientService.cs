@@ -1,30 +1,31 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using Thunder.Client.Transport;
-using System.Security.Cryptography;
+using Thunder.Client.Interfaces;
 using Thunder.Contracts.Requests;
 using System.Text.Json;
 
-// СИнглтон для обработки пользовательского ввода, генерации
+// обработка пользовательского ввода, генерации
 // вывода, создания задач для передачи по сети
 // для ThunderClientTransport
 namespace Thunder.Client.Service
 {
     internal class ThunderClientService
     {
-        private bool _hasLogin = false;
+        public bool IsAuthenticated { get; private set; } = false;
 
         // бизнес-логика
-        private ThunderClientTransport _transport = new();
+        private readonly ITransport _transport;
+        public ThunderClientService(ITransport transport)
+        {
+            _transport = transport;
+        }
         public async Task<bool> Login(string login, string password)
         {
-            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(password));
-
             var loginRequest = new LoginRequest
             {
                 Login = login,
-                PasswordHash = Convert.ToHexString(hash)
+                Password = password
             };
 
             var requestEnvelope = new RequestEnvelope
@@ -33,18 +34,37 @@ namespace Thunder.Client.Service
                 Payload = JsonSerializer.SerializeToElement(loginRequest)
             };
 
-            bool success = await _transport.SendAsync(requestEnvelope);
-
-            if (success)
-            {
-               _hasLogin = true;
-            }
-            else
-            {
-                _hasLogin = false;
-            }
-            // при учпешном логине сессия сохраняется до выхода из приложения
-            return success;
+            IsAuthenticated = await _transport.RequestAsync(requestEnvelope);
+            return IsAuthenticated;
         }
+        public async Task<bool> IsFreeLogin(string login)
+        {
+            var loginRequest = new IsFreeLoginRequest
+            {
+                Login = login,
+            };
+
+            var requestEnvelope = new RequestEnvelope
+            {
+                Type = RequestType.IsFreeLogin,
+                Payload = JsonSerializer.SerializeToElement(loginRequest)
+            };
+
+            return await _transport.RequestAsync(requestEnvelope);
+        }
+
+        public async Task<bool> Signup(string login, string password)
+        {
+            var signupRequest = new SignupRequest { Login = login, Password = password };
+            var requestEnvelope = new RequestEnvelope
+            {
+                Type = RequestType.SignUp,
+                Payload = JsonSerializer.SerializeToElement(signupRequest)
+            };
+
+            var IsAuthenticated = await _transport.RequestAsync(requestEnvelope);
+            return IsAuthenticated;
+        }
+
     }
 }

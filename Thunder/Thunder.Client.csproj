@@ -16,6 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.15" />
     <ProjectReference Include="..\Thunder.Contracts\Thunder.Contracts.csproj" />
   </ItemGroup>
 

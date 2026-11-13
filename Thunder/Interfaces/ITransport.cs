@@ -7,11 +7,6 @@ namespace Thunder.Client.Interfaces
 {
     public interface ITransport
     {
-        Task ConnectAsync();
-
-        // возвращает успешность отправки запроса
-        Task<bool> SendAsync(RequestEnvelope request);
-
-        Task ReceiveLoopAsync();
+        Task<bool> RequestAsync(RequestEnvelope request);
     }
 }

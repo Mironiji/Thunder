@@ -9,6 +9,7 @@ namespace Thunder.Client.CLI
         help,
         exit,
         login,
+        signup,
         find,
         type,
         thunder,

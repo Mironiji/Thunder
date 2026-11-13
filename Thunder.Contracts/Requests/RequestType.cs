@@ -7,6 +7,8 @@ namespace Thunder.Contracts.Requests
     public enum RequestType
     {
         Login,
-        Message
+        Message,
+        IsFreeLogin,
+        SignUp = 3
     }
 }

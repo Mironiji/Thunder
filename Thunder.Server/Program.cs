@@ -1,23 +1,20 @@
+using Thunder.Server.Storage;
+using Thunder.Server.ThunderWSockServer;
+
 var builder = WebApplication.CreateBuilder(args);
-
-// Add services to the container.
-
-builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+builder.Services.AddSingleton<ServerStorage>();
+builder.Services.AddSingleton<WebSocketServer>();
 
 var app = builder.Build();
+app.Services.GetRequiredService<ServerStorage>();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+app.UseWebSockets(new WebSocketOptions
 {
-    app.MapOpenApi();
-}
+    KeepAliveInterval = TimeSpan.FromSeconds(30),
+    KeepAliveTimeout = TimeSpan.FromSeconds(15)
+});
 
-app.UseHttpsRedirection();
-
-app.UseAuthorization();
-
-app.MapControllers();
+app.MapGet("/", () => Results.Ok(new { status = "ok" }));
+app.Map("/ws", (HttpContext context, WebSocketServer server) => server.HandleAsync(context));
 
 app.Run();
